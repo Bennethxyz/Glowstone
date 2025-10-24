@@ -27,7 +27,15 @@ public class MobSpawnerEntity extends BlockEntity {
     @Override
     public void loadNbt(CompoundTag tag) {
         super.loadNbt(tag);
-        spawning = tag.tryGetString("EntityId").map(EntityType::fromName).orElse(DEFAULT);
+        // 1.13+ stores entity id inside SpawnData compound as namespaced id
+        spawning = tag.tryGetCompound("SpawnData")
+                .flatMap(sd -> sd.tryGetString("id"))
+                .map(id -> {
+                    String simple = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+                    EntityType t = EntityType.fromName(simple);
+                    return t != null ? t : DEFAULT;
+                })
+                .orElseGet(() -> tag.tryGetString("EntityId").map(EntityType::fromName).orElse(DEFAULT));
         delay = tag.tryGetInt("Delay").orElse(0);
     }
 
@@ -39,7 +47,15 @@ public class MobSpawnerEntity extends BlockEntity {
     @Override
     public void saveNbt(CompoundTag tag) {
         super.saveNbt(tag);
-        tag.putString("EntityId", spawning == null ? "" : spawning.getName());
+        String simple = spawning == null ? "" : spawning.getName();
+        String namespaced = simple == null || simple.isEmpty() ? "" : ("minecraft:" + simple.toLowerCase());
+        // Write both legacy and modern fields for compatibility
+        tag.putString("EntityId", simple == null ? "" : simple);
+        CompoundTag spawnData = new CompoundTag();
+        if (!namespaced.isEmpty()) {
+            spawnData.putString("id", namespaced);
+        }
+        tag.putCompound("SpawnData", spawnData);
         tag.putInt("Delay", delay);
     }
 }

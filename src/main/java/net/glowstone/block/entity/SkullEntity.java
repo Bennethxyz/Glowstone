@@ -37,7 +37,11 @@ public class SkullEntity extends BlockEntity {
         if (BlockSkull.canRotate((Skull) getBlock().getState().getData())) {
             rotation = tag.getByte("Rot");
         }
-        if (tag.containsKey("Owner")) {
+        // 1.13+ uses SkullOwner; accept legacy Owner for backwards compatibility
+        if (tag.containsKey("SkullOwner")) {
+            CompoundTag ownerTag = tag.getCompound("SkullOwner");
+            owner = GlowPlayerProfile.fromNbt(ownerTag).join();
+        } else if (tag.containsKey("Owner")) {
             CompoundTag ownerTag = tag.getCompound("Owner");
             owner = GlowPlayerProfile.fromNbt(ownerTag).join();
         } else if (tag.containsKey("ExtraType")) {
@@ -57,7 +61,10 @@ public class SkullEntity extends BlockEntity {
             tag.putByte("Rot", rotation);
         }
         if (type == BlockSkull.getType(SkullType.PLAYER) && owner != null) {
-            tag.putCompound("Owner", owner.toNbt());
+            // Write modern 1.13+ tag name, and also legacy Owner for compatibility
+            CompoundTag skullOwner = owner.toNbt();
+            tag.putCompound("SkullOwner", skullOwner);
+            tag.putCompound("Owner", skullOwner);
         }
     }
 
